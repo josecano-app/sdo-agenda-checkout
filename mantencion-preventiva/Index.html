@@ -125,9 +125,15 @@ button { cursor: pointer; }
 <body>
 <main class="app" id="app"></main>
 
+<!-- Apps Script reemplaza esta línea con los datos del arrendatario. Abierto fuera de Google, se usa un ejemplo. -->
+<script type="application/json" id="boot"><?!= boot ?></script>
 <script>
 (() => {
-  const BOOT = <?!= boot ?>;
+  let BOOT;
+  try { BOOT = JSON.parse(document.getElementById('boot').textContent); }
+  catch (e) {
+    BOOT = { token: 'demo', tenant: { name: 'Andrés Josué Albarrán Mora', dir: 'Vicuña Mackenna 5862', depto: '1007', comuna: 'La Florida', estado: 'Pendiente contacto', agendado: null, cerrado: false } };
+  }
 
   // ---------- conexión con Apps Script (o modo demostración fuera de Google) ----------
   const LIVE = !!(window.google && google.script && google.script.run);

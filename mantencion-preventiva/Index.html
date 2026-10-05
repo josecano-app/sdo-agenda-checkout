@@ -113,6 +113,13 @@ button { cursor: pointer; }
 @keyframes s { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 .demo { background: var(--accent-soft); color: var(--ink); border-radius: 12px; padding: 10px 12px; font-size: 13px; }
+.prop { display: flex; gap: 12px; align-items: center; background: rgba(255,255,255,.14); border-radius: 14px; padding: 12px 14px; }
+.prop svg { flex: none; }
+.prop div { min-width: 0; }
+.prop strong { display: block; overflow-wrap: anywhere; }
+.prop span { font-size: 14px; opacity: .88; }
+.notice { background: var(--accent-soft); border-radius: 14px; padding: 12px 14px; font-size: 14px; }
+.notice b { display: block; }
 </style>
 </head>
 <body>
@@ -137,7 +144,7 @@ button { cursor: pointer; }
       getSlots() {
         const t = new Date(); t.setHours(0, 0, 0, 0);
         const days = {}; let first = null, last = null;
-        for (let i = 1; i <= 45; i++) {
+        for (let i = 1; i <= 30; i++) {
           const d = new Date(t); d.setDate(d.getDate() + i);
           if (d.getDay() === 0 || d.getDay() === 6) continue;
           const k = key(d); first = first || k; last = k;
@@ -148,7 +155,8 @@ button { cursor: pointer; }
       book(f) {
         if (taken[f.date + f.start]) throw new Error('Ese bloque se acaba de ocupar.');
         taken[f.date + f.start] = 1;
-        return { code: 'MP-' + String(Math.floor(1000 + Math.random() * 9000)), date: f.date, start: f.start, end: f.start + 2, where: f.address + (f.comuna ? ', ' + f.comuna : ''), name: f.name, invited: !!f.email };
+        const tn = S.tenant;
+        return { date: f.date, start: f.start, end: f.start + 2, where: `${tn.dir}, Depto. ${tn.depto}, ${tn.comuna}`, name: tn.name, invited: !!f.email, rescheduled: !!tn.agendado };
       }
     };
   })();
@@ -162,36 +170,45 @@ button { cursor: pointer; }
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const fmtDay = k => cap(fromKey(k).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' }));
   const hh = h => `${pad(h)}:00`;
+  const first = s => String(s || '').split(' ')[0];
   const I = {
     l: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>',
     r: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>',
-    ok: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>'
+    ok: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
+    home: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>'
   };
 
   // ---------- estado ----------
-  const pre = (BOOT && BOOT.prefill) || {};
   const S = {
+    token: BOOT.token, tenant: BOOT.tenant,
     step: 0, data: null, month: null, date: null, start: null, err: '', busy: false,
-    form: { name: pre.name || '', phone: '', email: '', address: pre.address || '', comuna: pre.comuna || '', note: '' },
-    errors: {}, result: null
+    form: { phone: '', email: '', note: '' }, errors: {}, result: null
   };
 
   function render() {
+    const tn = S.tenant;
+    const demo = LIVE ? '' : '<div class="demo"><b>Modo demostración.</b> Los horarios ocupados son de ejemplo y nada se guarda. Publicada en Google, esta página lee tu calendario y escribe en la planilla.</div>';
+    if (!tn) {
+      $('#app').innerHTML = demo + `<section class="card"><h2>Este link no es válido</h2><p class="sub" style="margin:0">${esc(BOOT.error || 'Puede que esté incompleto o que haya expirado. Escríbenos y te enviamos uno nuevo.')}</p></section>`;
+      return;
+    }
     const hero = `
       <section class="hero">
         <div class="eyebrow">SDO Rent · Mantención preventiva</div>
-        <h1>${S.form.name ? 'Hola ' + esc(S.form.name.split(' ')[0]) + ', agenda' : 'Agenda'} la visita de mantención</h1>
-        <p>Elige el día y el bloque de 2 horas en que podemos ir a tu propiedad. Te confirmamos al instante.</p>
+        <h1>Hola ${esc(first(tn.name))}, elige cuándo vamos a tu depto</h1>
+        <p>Un técnico de Maestro Soluciones hará la mantención preventiva. Elige el día y el bloque de 2 horas que te acomode.</p>
+        <div class="prop">${I.home}<div><strong>${esc(tn.dir)}, depto ${esc(tn.depto)}</strong><span>${esc(tn.comuna)}</span></div></div>
         <div class="facts"><span>Lunes a viernes</span><span>9:00 a 17:00</span><span>Bloques de 2 horas</span></div>
       </section>`;
-    const demo = LIVE ? '' : '<div class="demo"><b>Modo demostración.</b> Los horarios ocupados son de ejemplo y las reservas no se guardan. Publicada en Google, esta página lee y agenda en el calendario real.</div>';
     let body;
-    if (S.step === 0) body = `<div class="card"><div class="loading"><div class="spin"></div>Buscando horarios disponibles…</div></div>`;
+    if (tn.cerrado) body = `<section class="card"><h2>Tu visita ya está coordinada</h2><p class="sub" style="margin:0">Estado: ${esc(tn.estado)}. Si necesitas cambiar algo, escríbenos por WhatsApp.</p></section>`;
+    else if (S.step === 0) body = `<div class="card"><div class="loading"><div class="spin"></div>Buscando horarios disponibles…</div></div>`;
     else if (S.step === -1) body = `<div class="card"><h2>No pudimos cargar la agenda</h2><p class="sub" style="margin:0">${esc(S.err)}</p><div class="actions"><button class="btn primary" id="retry">Reintentar</button></div></div>`;
     else if (S.step === 4) body = done();
     else {
-      const names = ['Elige el día', 'Elige el bloque horario', 'Tus datos'];
-      body = `<div class="steps" aria-hidden="true">${[1, 2, 3].map(i => `<i class="${i <= S.step ? 'on' : ''}"></i>`).join('')}</div>
+      const names = ['Elige el día', 'Elige el bloque horario', 'Confirma'];
+      const prev = tn.agendado && S.step === 1 ? `<div class="notice"><b>Ya tienes una visita: ${esc(fmtDay(tn.agendado.date))}, ${esc(tn.agendado.franja)}.</b>Si quieres cambiarla, elige otro día y bloque. La anterior se reemplaza.</div>` : '';
+      body = prev + `<div class="steps" aria-hidden="true">${[1, 2, 3].map(i => `<i class="${i <= S.step ? 'on' : ''}"></i>`).join('')}</div>
         <div class="steps-text">Paso ${S.step} de 3 · ${names[S.step - 1]}</div>` + (S.step === 1 ? stepDay() : S.step === 2 ? stepBlock() : stepForm());
     }
     $('#app').innerHTML = (S.step === 4 ? '' : hero) + demo + body;
@@ -201,8 +218,8 @@ button { cursor: pointer; }
 
   function stepDay() {
     const m = S.month, y = m.getFullYear(), mo = m.getMonth();
-    const first = new Date(y, mo, 1), n = new Date(y, mo + 1, 0).getDate();
-    const off = (first.getDay() + 6) % 7;
+    const firstDay = new Date(y, mo, 1), n = new Date(y, mo + 1, 0).getDate();
+    const off = (firstDay.getDay() + 6) % 7;
     const canPrev = key(new Date(y, mo, 0)) >= S.data.from;
     const canNext = key(new Date(y, mo + 1, 1)) <= S.data.to;
     let cells = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'].map(d => `<div class="dow">${d}</div>`).join('');
@@ -215,7 +232,7 @@ button { cursor: pointer; }
     return `<section class="card">
       <div class="cal-head">
         <button class="icon-btn" id="prev" ${canPrev ? '' : 'disabled'} aria-label="Mes anterior">${I.l}</button>
-        <h3>${cap(first.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }))}</h3>
+        <h3>${cap(firstDay.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }))}</h3>
         <button class="icon-btn" id="next" ${canNext ? '' : 'disabled'} aria-label="Mes siguiente">${I.r}</button>
       </div>
       <div class="cal">${cells}</div>
@@ -230,29 +247,31 @@ button { cursor: pointer; }
       <h2>${esc(fmtDay(S.date))}</h2>
       <p class="sub">El técnico llega dentro del bloque que elijas.</p>
       <div class="blocks">${info.blocks.map(btn).join('')}</div>
+      ${S.err ? `<div class="err">${esc(S.err)}</div>` : ''}
       <div class="actions"><button class="btn" id="back1">Cambiar día</button><button class="btn primary" id="go3" ${S.start == null ? 'disabled' : ''}>Continuar</button></div>
     </section>`;
   }
 
   function stepForm() {
-    const f = S.form, e = S.errors;
+    const f = S.form, e = S.errors, tn = S.tenant;
     const fld = (id, label, type, ph, extra = '', opt = false) => `
       <div class="field"><label for="f-${id}">${label}${opt ? ' <span>(opcional)</span>' : ''}</label>
       <input id="f-${id}" name="${id}" type="${type}" value="${esc(f[id])}" placeholder="${ph}" ${extra}>
       ${e[id] ? `<div class="err">${e[id]}</div>` : ''}</div>`;
     return `<section class="card">
       <h2>Confirma tu visita</h2>
-      <dl class="summary"><dt>Día</dt><dd>${esc(fmtDay(S.date))}</dd><dt>Bloque</dt><dd>${hh(S.start)} a ${hh(S.start + 2)}</dd></dl>
+      <dl class="summary">
+        <dt>Día</dt><dd>${esc(fmtDay(S.date))}</dd>
+        <dt>Bloque</dt><dd>${hh(S.start)} a ${hh(S.start + 2)}</dd>
+        <dt>Depto</dt><dd>${esc(tn.dir)}, depto ${esc(tn.depto)}</dd>
+      </dl>
       <form class="form" id="form" novalidate>
-        ${fld('name', 'Nombre completo', 'text', 'Ej: Camila Rojas', 'autocomplete="name"')}
         <div class="row2">
-          ${fld('phone', 'Teléfono / WhatsApp', 'tel', '+56 9 1234 5678', 'autocomplete="tel" inputmode="tel"')}
+          ${fld('phone', 'Teléfono de contacto', 'tel', '+56 9 1234 5678', 'autocomplete="tel" inputmode="tel"')}
           ${fld('email', 'Correo', 'email', 'nombre@correo.cl', 'autocomplete="email"', true)}
         </div>
-        ${fld('address', 'Dirección y depto', 'text', 'Ej: Santa Elisa 490, depto 1004', 'autocomplete="street-address"')}
-        ${fld('comuna', 'Comuna', 'text', 'Ej: Santiago', '', true)}
-        <div class="field"><label for="f-note">Equipos o indicaciones <span>(opcional)</span></label>
-          <textarea id="f-note" name="note" rows="2" placeholder="Ej: calefont y termo eléctrico; avisar en conserjería">${esc(f.note)}</textarea></div>
+        <div class="field"><label for="f-note">¿Algo que el técnico deba saber? <span>(opcional)</span></label>
+          <textarea id="f-note" name="note" rows="2" placeholder="Ej: no tengo termo; avisar en conserjería; hay humedad en el baño">${esc(f.note)}</textarea></div>
         ${S.err ? `<div class="err">${esc(S.err)}</div>` : ''}
         <div class="actions"><button type="button" class="btn" id="back2">Cambiar bloque</button>
           <button type="submit" class="btn primary" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Agendando…' : 'Agendar visita'}</button></div>
@@ -264,15 +283,14 @@ button { cursor: pointer; }
     const r = S.result;
     return `<section class="card done">
       <div class="ok">${I.ok}</div>
-      <h2>¡Listo! Tu visita quedó agendada</h2>
-      <span class="code">${esc(r.code)}</span>
+      <h2>${r.rescheduled ? '¡Listo! Cambiamos tu visita' : '¡Listo! Tu visita quedó agendada'}</h2>
       <dl class="summary">
         <dt>Día</dt><dd>${esc(fmtDay(r.date))}</dd>
         <dt>Bloque</dt><dd>${hh(r.start)} a ${hh(r.end)}</dd>
         <dt>Dirección</dt><dd>${esc(r.where)}</dd>
         <dt>Nombre</dt><dd>${esc(r.name)}</dd>
       </dl>
-      <p class="help">${r.invited ? 'Te enviamos la invitación a tu correo.' : 'Guarda este código.'} Si necesitas cambiar la hora, escríbenos indicándolo.</p>
+      <p class="help">${r.invited ? 'Te enviamos la invitación a tu correo. ' : ''}Si necesitas cambiar la hora, vuelve a abrir este mismo link.</p>
     </section>`;
   }
 
@@ -280,7 +298,7 @@ button { cursor: pointer; }
   function go(step) { S.step = step; S.errors = {}; S.err = ''; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   function load() {
     S.step = 0; render();
-    api('getSlots').then(d => {
+    api('getSlots', S.token).then(d => {
       S.data = d;
       const firstFree = Object.keys(d.days).find(k => freeCount(k)) || d.from;
       const f = fromKey(firstFree); S.month = new Date(f.getFullYear(), f.getMonth(), 1);
@@ -290,7 +308,7 @@ button { cursor: pointer; }
   function readForm() {
     const fm = $('#form'); if (!fm) return;
     const fd = new FormData(fm);
-    ['name', 'phone', 'email', 'address', 'comuna', 'note'].forEach(k => S.form[k] = String(fd.get(k) || '').trim());
+    ['phone', 'email', 'note'].forEach(k => S.form[k] = String(fd.get(k) || '').trim());
   }
 
   document.addEventListener('click', e => {
@@ -298,7 +316,7 @@ button { cursor: pointer; }
     if (t.id === 'prev') { S.month = new Date(S.month.getFullYear(), S.month.getMonth() - 1, 1); render(); }
     else if (t.id === 'next') { S.month = new Date(S.month.getFullYear(), S.month.getMonth() + 1, 1); render(); }
     else if (t.dataset.day) { if (S.date !== t.dataset.day) S.start = null; S.date = t.dataset.day; go(2); }
-    else if (t.dataset.start) { S.start = Number(t.dataset.start); render(); }
+    else if (t.dataset.start) { S.start = Number(t.dataset.start); S.err = ''; render(); }
     else if (t.id === 'back1') go(1);
     else if (t.id === 'go3') go(3);
     else if (t.id === 'back2') { readForm(); go(2); }
@@ -309,26 +327,23 @@ button { cursor: pointer; }
     if (e.target.id !== 'form') return;
     e.preventDefault(); readForm();
     const f = S.form, err = {};
-    if (f.name.length < 3) err.name = 'Escribe tu nombre completo.';
     if (f.phone.replace(/\D/g, '').length < 8) err.phone = 'Escribe un teléfono, por ejemplo +56 9 1234 5678.';
     if (f.email && !/^\S+@\S+\.\S+$/.test(f.email)) err.email = 'Revisa el correo: falta el @ o el dominio.';
-    if (f.address.length < 5) err.address = 'Escribe la dirección y el número de depto.';
     S.errors = err; S.err = '';
     if (Object.keys(err).length) { render(); return; }
     S.busy = true; render();
-    api('book', { date: S.date, start: S.start, ...f }).then(r => {
+    api('book', { token: S.token, date: S.date, start: S.start, ...f }).then(r => {
       S.busy = false; S.result = r; go(4);
     }).catch(ex => {
       S.busy = false;
       const msg = (ex && ex.message) || 'No se pudo agendar. Intenta de nuevo.';
       if (/ocup/i.test(msg)) {
-        // Recarga la disponibilidad y vuelve a elegir bloque
-        api('getSlots').then(d => { S.data = d; S.start = null; go(2); S.err = msg; render(); });
+        api('getSlots', S.token).then(d => { S.data = d; S.start = null; go(2); S.err = msg; render(); });
       } else { S.err = msg; render(); }
     });
   });
 
-  load();
+  if (S.tenant && !S.tenant.cerrado) load(); else render();
 })();
 </script>
 </body>

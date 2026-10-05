@@ -1,50 +1,53 @@
 # Agenda de Mantención Preventiva
 
-Página donde el cliente elige el día y un bloque de 2 horas para la visita de mantención preventiva.
-La disponibilidad se lee del calendario de `josecano@sdorent.cl`, y cada reserva se agenda ahí mismo.
+Instrumento de agendamiento conectado a la planilla consolidada **Mantencion_Preventiva_MS** (pestaña **Coordinación**).
 
-- Lunes a viernes, bloques **09–11, 11–13, 13–15 y 15–17**.
-- Un bloque se ofrece solo si no hay ningún evento en el calendario en ese horario (los eventos rechazados y los de día completo no bloquean).
-- Los feriados de Chile se bloquean automáticamente.
-- Desde mañana y hasta 45 días hacia adelante.
-- Al reservar, se crea el evento "Mantención preventiva · dirección" en el calendario. Si el cliente deja su correo, recibe la invitación.
-- Cada reserva queda también en la pestaña **Agendamientos** de la planilla.
-- Dos personas no pueden tomar el mismo bloque: la reserva se vuelve a validar con un bloqueo antes de crear el evento.
+Cada arrendatario recibe su **link personal** por WhatsApp o correo. Al abrirlo ve su propiedad y los bloques
+de 2 horas libres (lunes a viernes: **09–11, 11–13, 13–15, 15–17**) según el calendario de `josecano@sdorent.cl`.
+Cuando reserva:
+
+- se crea el evento **"Mantención Preventiva MS – Dirección Ddepto (Nombre)"** en el calendario, con invitación a
+  `ventas@maestrosoluciones.cl` (y al arrendatario si deja su correo);
+- su fila en **Coordinación** se actualiza: *Estado coordinación* = Agendado, *Fecha visita*, *Franja horaria*,
+  *Fecha 1er contacto* (si estaba vacía) y una nota en *Observaciones*;
+- el bloque queda ocupado para los demás. Se vuelve a validar con un bloqueo antes de guardar, para que no haya dos reservas en el mismo bloque.
+
+Si vuelve a abrir su link, ve su visita actual y puede cambiarla: el evento anterior se borra y se crea el nuevo.
+Si su estado es *Enviado a MS*, *Realizado* o *No realizado*, la página no le deja reagendar.
+
+Cualquier evento de tu calendario ocupa el bloque en que cae. Los de día completo y los que rechazaste no bloquean, y los feriados de Chile se bloquean solos.
 
 ## Archivos
 
 | Archivo | Qué es |
 |---|---|
-| `Code.gs` | Servidor: disponibilidad, reserva y registro en la planilla |
-| `Index.html` | Página del cliente (funciona en modo demostración si se abre fuera de Google) |
-| `appsscript.json` | Manifiesto: zona horaria de Santiago, web app pública que se ejecuta con tu cuenta |
+| `Code.gs` | Servidor: menú, links personales, disponibilidad, reserva y actualización de la planilla |
+| `Index.html` | Página del arrendatario (si se abre fuera de Google, funciona en modo demostración) |
+| `appsscript.json` | Zona horaria de Santiago; app web pública que se ejecuta con tu cuenta |
 
-## Publicarla (una sola vez, ~5 minutos)
+## Puesta en marcha (una vez)
 
-1. Abre la planilla **Agenda Mantención Preventiva** en Google Drive (`josecano@sdorent.cl`).
-2. Menú **Extensiones → Apps Script**.
-3. Borra el contenido de `Código.gs` y pega `Code.gs`. Crea un archivo HTML llamado `Index` (**+ → HTML**) y pega `Index.html`.
-4. En **Configuración del proyecto** (engranaje), marca "Mostrar el archivo de manifiesto appsscript.json" y pega `appsscript.json`.
-5. Selecciona la función `setup` y presiona **Ejecutar**. Autoriza los permisos (calendario y planilla).
-6. **Implementar → Nueva implementación → Aplicación web**. Ejecutar como: **Yo**. Quién tiene acceso: **Cualquier usuario**. Presiona **Implementar** y copia la URL (termina en `/exec`).
+1. Abre `Mantencion_Preventiva_MS_Sep2026.xlsx` en Drive y usa **Archivo → Guardar como Hojas de cálculo de Google**.
+   (Apps Script no funciona sobre un .xlsx.) Trabaja desde ahora en esa versión.
+2. En la versión de Google: **Extensiones → Apps Script**.
+3. Pega `Code.gs` en `Código.gs`, crea un archivo HTML llamado `Index` y pega `Index.html`.
+   En **Configuración del proyecto** activa "Mostrar appsscript.json" y pega `appsscript.json`.
+4. **Implementar → Nueva implementación → Aplicación web** con "Ejecutar como: **Yo**" y "Acceso: **Cualquier usuario**". Autoriza los permisos.
+5. Vuelve a la planilla y recárgala. Aparece el menú **Agenda**:
+   - **Configurar (una vez)**: agrega al final las columnas *Link agenda*, *WhatsApp + link*, *Token* e *ID evento*
+     (las dos últimas quedan ocultas) y actualiza las franjas de la hoja *Listas* a los bloques de 2 horas.
+   - **Generar links para arrendatarios**: llena *Link agenda* y *WhatsApp + link* en cada fila.
 
-Esa URL es el link para compartir por correo o WhatsApp.
+Para contactar a un arrendatario, haz clic en **Enviar** de la columna *WhatsApp + link*. Se abre WhatsApp con este mensaje:
 
-Opcional: el link acepta datos para dejar el formulario prellenado, por ejemplo
-`…/exec?nombre=Camila%20Rojas&dir=Santa%20Elisa%20490%20D1004&comuna=Santiago`.
-
-### Usar otro calendario
-
-Por defecto se usa el calendario principal de la cuenta que publica. Para usar otro, por ejemplo "Servicio Mantención preventiva",
-agrega en **Configuración del proyecto → Propiedades del script** la propiedad `CAL_ID` con el ID del calendario.
-
-### Cambiar horarios
-
-Edita `CFG` al inicio de `Code.gs` (bloques, anticipación, días hacia adelante) y vuelve a implementar
-(**Implementar → Administrar implementaciones → editar → Nueva versión**) para mantener la misma URL.
-
-## Mensaje sugerido para WhatsApp o correo
-
-> Hola {nombre}, te escribimos de SDO Rent para coordinar la mantención preventiva de tu propiedad.
+> Hola {nombre}, te escribimos de SDO Rent para coordinar la mantención preventiva de tu departamento en {dirección}, depto {depto}.
 > Elige el día y el bloque horario que te acomode aquí: {link}
-> Atendemos de lunes a viernes de 9:00 a 17:00. ¡Gracias!
+> Las visitas son de lunes a viernes entre 9:00 y 17:00, en bloques de 2 horas. ¡Gracias!
+
+Para enviarlo por correo, copia el *Link agenda* de la fila.
+
+## Ajustes
+
+- **Bloques, anticipación y días hacia adelante**: `CFG` al inicio de `Code.gs`. Después de editar, usa **Implementar → Administrar implementaciones → Editar → Nueva versión** para mantener la misma URL.
+- **Correo del proveedor**: propiedad del script `PROVEEDOR_EMAIL` (por defecto `ventas@maestrosoluciones.cl`).
+- **URL distinta**: si *Generar links* no encuentra la URL, guárdala en la propiedad del script `WEBAPP_URL`.

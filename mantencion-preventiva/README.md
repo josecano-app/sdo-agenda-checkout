@@ -1,6 +1,7 @@
 # Agenda de Mantención Preventiva
 
-Instrumento de agendamiento conectado a la planilla consolidada **Mantencion_Preventiva_MS** (pestaña **Coordinación**).
+Instrumento de agendamiento conectado a la planilla **Agenda Mantención Preventiva** de Google Drive
+(pestaña **Coordinación**, con los 68 arrendatarios del proveedor MS).
 
 Cada arrendatario recibe su **link personal** por WhatsApp o correo. Al abrirlo ve su propiedad y los bloques
 de 2 horas libres (lunes a viernes: **09–11, 11–13, 13–15, 15–17**) según el calendario de `josecano@sdorent.cl`.
@@ -27,15 +28,17 @@ Cualquier evento de tu calendario ocupa el bloque en que cae. Los de día comple
 
 ## Puesta en marcha (una vez)
 
-1. Abre `Mantencion_Preventiva_MS_Sep2026.xlsx` en Drive y usa **Archivo → Guardar como Hojas de cálculo de Google**.
-   (Apps Script no funciona sobre un .xlsx.) Trabaja desde ahora en esa versión.
-2. En la versión de Google: **Extensiones → Apps Script**.
-3. Pega `Code.gs` en `Código.gs`, crea un archivo HTML llamado `Index` y pega `Index.html`.
-   En **Configuración del proyecto** activa "Mostrar appsscript.json" y pega `appsscript.json`.
-4. **Implementar → Nueva implementación → Aplicación web** con "Ejecutar como: **Yo**" y "Acceso: **Cualquier usuario**". Autoriza los permisos.
-5. Vuelve a la planilla y recárgala. Aparece el menú **Agenda**:
-   - **Configurar (una vez)**: agrega al final las columnas *Link agenda*, *WhatsApp + link*, *Token* e *ID evento*
-     (las dos últimas quedan ocultas) y actualiza las franjas de la hoja *Listas* a los bloques de 2 horas.
+1. Abre la planilla **Agenda Mantención Preventiva** en Google Drive (`josecano@sdorent.cl`) y entra a **Extensiones → Apps Script**.
+2. Pega `Code.gs` en `Código.gs`, crea un archivo HTML llamado `Index` y pega `Index.html`.
+   En **Configuración del proyecto**, activa "Mostrar appsscript.json" y pega `appsscript.json`.
+3. **Implementar → Nueva implementación → Aplicación web** con "Ejecutar como: **Yo**" y "Acceso: **Cualquier usuario**". Autoriza los permisos.
+4. Vuelve a la planilla y recárgala. Aparece el menú **Agenda**:
+   - **Configurar (una vez)**:
+     - le pone a la primera hoja el nombre *Coordinación*;
+     - agrega las columnas *Link agenda*, *WhatsApp + link*, *Token* e *ID evento* (las dos últimas quedan ocultas);
+     - aplica formato a las fechas y montos;
+     - crea la hoja *Listas*, con estados y bloques de 2 horas, y pone las listas desplegables;
+     - crea la hoja *Resumen*, con el avance por estado y por comuna, que se actualiza sola.
    - **Generar links para arrendatarios**: llena *Link agenda* y *WhatsApp + link* en cada fila.
 
 Para contactar a un arrendatario, haz clic en **Enviar** de la columna *WhatsApp + link*. Se abre WhatsApp con este mensaje:

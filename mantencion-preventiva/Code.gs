@@ -1,8 +1,8 @@
 /**
  * Agenda de Mantención Preventiva – SDO Rent
  *
- * Instrumento de agendamiento conectado a la planilla consolidada
- * "Mantencion_Preventiva_MS" (pestaña "Coordinación").
+ * Instrumento de agendamiento conectado a la planilla "Agenda Mantención Preventiva"
+ * (pestaña "Coordinación", con los 68 arrendatarios del proveedor MS).
  *
  *  - Cada arrendatario recibe un link personal (…/exec?t=<token>) por WhatsApp o correo.
  *  - La página muestra su propiedad y los bloques de 2 horas libres
@@ -13,7 +13,7 @@
  *        Fecha 1er contacto (si estaba vacía) y Observaciones.
  *
  * Menú "Agenda" en la planilla:
- *  - Configurar: prepara columnas y listas (ejecutar una vez).
+ *  - Configurar: prepara columnas, formatos, listas desplegables y la hoja Resumen (una vez).
  *  - Generar links: crea el link personal y el botón de WhatsApp con el mensaje listo para cada fila.
  */
 
@@ -47,35 +47,74 @@ function onOpen() {
     .addToUi();
 }
 
+const ESTADOS = ['Pendiente contacto', 'Contactado sin respuesta', 'Agendado', 'Enviado a MS', 'Reagendar', 'Realizado', 'No realizado'];
+
 function setup() {
+  const ss = SpreadsheetApp.getActive();
+  if (!ss.getSheetByName(CFG.SHEET)) ss.getSheets()[0].setName(CFG.SHEET);
   const t = table_();
   const sh = t.sh;
   let col = sh.getLastColumn();
   Object.values(NUEVAS).forEach(name => {
-    if (t.col[name] === undefined) {
-      col++;
-      sh.getRange(t.headRow, col).setValue(name).setFontWeight('bold');
-    }
+    if (t.col[name] === undefined) sh.getRange(t.headRow, ++col).setValue(name);
   });
-  const tok = table_();
-  sh.hideColumns(tok.col[NUEVAS.TOKEN] + 1);
-  sh.hideColumns(tok.col[NUEVAS.EVENTO] + 1);
+  const tk = table_();
+  const last = Math.max(sh.getMaxRows(), tk.headRow + 1);
+  const n = last - tk.headRow;
+  const colRange = name => sh.getRange(tk.headRow + 1, tk.col[name] + 1, n, 1);
 
-  // Franjas nuevas (bloques de 2 horas) en la hoja "Listas", si existe
-  const listas = SpreadsheetApp.getActive().getSheetByName('Listas');
-  if (listas) {
-    const v = listas.getDataRange().getValues();
-    for (let r = 0; r < v.length; r++) {
-      const c = v[r].indexOf('Franjas');
-      if (c >= 0) {
-        const franjas = CFG.BLOCKS.map(franja_).concat(['Todo el día']).map(x => [x]);
-        listas.getRange(r + 2, c + 1, Math.max(franjas.length, 5), 1).clearContent();
-        listas.getRange(r + 2, c + 1, franjas.length, 1).setValues(franjas);
-        break;
-      }
-    }
-  }
-  Logger.log('Listo. Calendario: %s', CalendarApp.getDefaultCalendar().getName());
+  // Formato: encabezado, fechas, montos, columnas ocultas
+  sh.setFrozenRows(tk.headRow);
+  sh.getRange(tk.headRow, 1, 1, sh.getLastColumn()).setFontWeight('bold').setBackground('#dceaf1');
+  [C.FECHA, C.CONTACTO, 'Fecha realizada'].forEach(c => { if (tk.col[c] !== undefined) colRange(c).setNumberFormat('dd-MM-yyyy'); });
+  if (tk.col['Cargo mant. ($)'] !== undefined) colRange('Cargo mant. ($)').setNumberFormat('$#,##0');
+  sh.hideColumns(tk.col[NUEVAS.TOKEN] + 1);
+  sh.hideColumns(tk.col[NUEVAS.EVENTO] + 1);
+
+  // Hoja Listas: estados y franjas (bloques de 2 horas)
+  const listas = ss.getSheetByName('Listas') || ss.insertSheet('Listas');
+  listas.clear();
+  const franjas = CFG.BLOCKS.map(franja_).concat(['Todo el día']);
+  const rows = Math.max(ESTADOS.length, franjas.length);
+  const vals = [['Estados', 'Franjas']];
+  for (let i = 0; i < rows; i++) vals.push([ESTADOS[i] || '', franjas[i] || '']);
+  listas.getRange(1, 1, vals.length, 2).setValues(vals);
+  listas.getRange(1, 1, 1, 2).setFontWeight('bold');
+
+  // Listas desplegables en la hoja de coordinación
+  colRange(C.ESTADO).setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInRange(listas.getRange(2, 1, ESTADOS.length, 1), true).setAllowInvalid(false).build());
+  colRange(C.FRANJA).setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInRange(listas.getRange(2, 2, franjas.length, 1), true).setAllowInvalid(true).build());
+
+  // Hoja Resumen: avance por estado y por comuna (fórmulas, se actualiza sola)
+  const res = ss.getSheetByName('Resumen') || ss.insertSheet('Resumen');
+  res.clear();
+  const ref = name => "'" + CFG.SHEET + "'!" + colLetter_(tk.col[name] + 1) + ':' + colLetter_(tk.col[name] + 1);
+  const est = ref(C.ESTADO), com = ref(C.COMUNA), nom = ref(C.NOMBRE);
+  const out = [['Estado', 'Cantidad', '%']];
+  ESTADOS.forEach((e, i) => out.push([e, '=COUNTIF(' + est + ',A' + (i + 2) + ')', '=IFERROR(B' + (i + 2) + '/B' + (ESTADOS.length + 2) + ',0)']));
+  out.push(['Total', '=COUNTA(' + nom + ')-1', '']);
+  res.getRange(1, 1, out.length, 3).setValues(out);
+  res.getRange(2, 3, ESTADOS.length, 1).setNumberFormat('0%');
+  const r0 = out.length + 2;
+  res.getRange(r0, 1, 1, 5).setValues([['Comuna', 'Deptos', 'Agendados / Enviado MS', 'Realizados', 'Pendientes']]);
+  res.getRange(r0 + 1, 1).setFormula('=SORT(UNIQUE(FILTER(' + com + ',' + com + '<>"",' + com + '<>"' + C.COMUNA + '")))');
+  const k = 'A' + (r0 + 1) + ':A';
+  res.getRange(r0 + 1, 2).setFormula('=ARRAYFORMULA(IF(' + k + '="",,COUNTIF(' + com + ',' + k + ')))');
+  res.getRange(r0 + 1, 3).setFormula('=ARRAYFORMULA(IF(' + k + '="",,COUNTIFS(' + com + ',' + k + ',' + est + ',"Agendado")+COUNTIFS(' + com + ',' + k + ',' + est + ',"Enviado a MS")))');
+  res.getRange(r0 + 1, 4).setFormula('=ARRAYFORMULA(IF(' + k + '="",,COUNTIFS(' + com + ',' + k + ',' + est + ',"Realizado")))');
+  res.getRange(r0 + 1, 5).setFormula('=ARRAYFORMULA(IF(' + k + '="",,B' + (r0 + 1) + ':B-C' + (r0 + 1) + ':C-D' + (r0 + 1) + ':D))');
+  res.getRange(1, 1, 1, 3).setFontWeight('bold');
+  res.getRange(r0, 1, 1, 5).setFontWeight('bold');
+
+  SpreadsheetApp.getActive().toast('Planilla configurada. Calendario: ' + CalendarApp.getDefaultCalendar().getName(), 'Agenda');
+}
+
+function colLetter_(n) {
+  let s = '';
+  while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+  return s;
 }
 
 function webUrl_() {
@@ -178,7 +217,7 @@ function publicTenant_(r) {
   return {
     name: String(r[C.NOMBRE]), dir: String(r[C.DIR]), depto: String(r[C.DEPTO]), comuna: String(r[C.COMUNA]),
     estado: String(r[C.ESTADO] || ''),
-    agendado: fecha && r[C.ESTADO] === 'Agendado' ? { date: fecha, franja: String(r[C.FRANJA] || '') } : null,
+    agendado: fecha && r[C.ESTADO] === 'Agendado' ? { date: fecha, franja: r[C.FRANJA] instanceof Date ? Utilities.formatDate(r[C.FRANJA], CFG.TZ, 'HH:mm') : String(r[C.FRANJA] || '') } : null,
     cerrado: CFG.CERRADOS.indexOf(String(r[C.ESTADO])) >= 0
   };
 }
